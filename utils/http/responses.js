@@ -7,8 +7,7 @@ const codes = require("./codes");
  * @param {object} data: JSON data to be stringfied and sent
  */
 const OkResponse = (res, data) => {
-  res.statusCode = codes.OK;
-  res.end(JSON.stringify(data));
+  res.status(codes.OK).json(data);
 };
 
 /**
@@ -18,8 +17,7 @@ const OkResponse = (res, data) => {
  * @param {object} data: JSON data to be stringfied and sent
  */
 const CreatedResponse = (res, data) => {
-  res.statusCode = codes.CREATED;
-  res.end(JSON.stringify(data));
+  res.status(codes.CREATED).json(data);
 };
 
 /**
@@ -28,8 +26,7 @@ const CreatedResponse = (res, data) => {
  * @param {http.ServerResponse} res: NodeJS response object
  */
 const MethodNotAllowedResponse = res => {
-  res.statusCode = codes.METHOD_NOT_ALLOWED;
-  res.end();
+  res.status(codes.METHOD_NOT_ALLOWED).end();
 };
 
 module.exports = {
