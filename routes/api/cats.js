@@ -4,8 +4,11 @@ var Router = require("router"),
   {
     OkResponse,
     CreatedResponse,
-    MethodNotAllowedResponse
   } = require("../../utils/http/responses"),
+  validationSchemas = require("../../validators/cats"),
+  { checkSchema } = require("express-validator/check"),
+  { matchedData } = require("express-validator/filter"),
+  handleValidationErrors = require("../../middleware/handleValidationErrors"),
   router = new Router();
 
 router
@@ -19,29 +22,33 @@ router
       next(err, req, res);
     }
   })
-  .post(async (req, res, next) => {
-    try {
-      const object = await service.create(req.body);
-      CreatedResponse(res, object);
-      next();
-    } catch (err) {
-      next(err, req, res);
+  .post(
+    checkSchema(validationSchemas.create),
+    handleValidationErrors,
+    async (req, res, next) => {
+      try {
+        const object = await service.create(
+          matchedData(req, { locations: ["body"] })
+        );
+        CreatedResponse(res, object);
+        next();
+      } catch (err) {
+        next(err, req, res);
+      }
     }
-  })
-  .all(async (req, res, next) => {
-    MethodNotAllowedResponse(res);
-    next();
-  });
+  )
 
 router
-  .use("/:id", async (req, res, next) => {
+  .use("/:id", checkSchema(validationSchemas.detail), handleValidationErrors)
+  .param("id", async (req, res, next, id) => {
     try {
-      req.cat = await service.getById(req.params.id);
+      req.cat = await service.getById(id);
       if (!req.cat) {
         throw new ResourceNotFoundException(
           `Resource "${req.params.id}" not found`
         );
       }
+      next();
     } catch (err) {
       next(err, req, res);
     }
@@ -54,14 +61,21 @@ router
       next(err, req, res);
     }
   })
-  .patch(async (req, res, next) => {
-    try {
-      const object = await service.patchById(req.params.id, req.body);
-      OkResponse(res, object);
-    } catch (err) {
-      next(err, req, res);
+  .patch(
+    checkSchema(validationSchemas.update),
+    handleValidationErrors,
+    async (req, res, next) => {
+      try {
+        const object = await service.patchById(
+          req.params.id,
+          matchedData(req, { locations: ["body"] })
+        );
+        OkResponse(res, object);
+      } catch (err) {
+        next(err, req, res);
+      }
     }
-  })
+  )
   .delete(async (req, res, next) => {
     try {
       const object = await service.removeById(req.params.id);
@@ -70,9 +84,5 @@ router
       next(err, req, res);
     }
   })
-  .all(async (req, res, next) => {
-    MethodNotAllowedResponse(res);
-    next();
-  });
 
 module.exports = router;

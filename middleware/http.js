@@ -17,7 +17,9 @@ const logRequest = (req, res, next) => {
       )}`
     );
   }
-  next();
+  if (next) {
+    next();
+  }
 };
 
 const logResponse = (req, res, next) => {
@@ -29,14 +31,18 @@ const logResponse = (req, res, next) => {
       body
     )}`
   );
-  next();
+  if (next) {
+    next();
+  }
 };
 
 const setRequestId = (req, res, next) => {
   req.id = Math.random()
     .toString(36)
     .substr(2);
-  next();
+  if (next) {
+    next();
+  }
 };
 
 module.exports = {

@@ -15,31 +15,8 @@ const errorHandler = (err, req, res, next) => {
     if (this.stack) {
       json.stack = err.stack;
     }
-    res.statusCode = json.status;
-    res.end(JSON.stringify(json));
+    res.status(json.status).json(json);
   }
-
-  let responseString = `Response ${req.id}: ${req.method} ${
-    req.path
-  } ${err.status || err.statusCode}`;
-  let errorString;
-  let stackString;
-  if (typeof err.getErrorString === "function") {
-    errorString = err.getErrorString(req, res);
-  } else {
-    errorString = format(
-      "Name: %s Code: %s - %d: %s",
-      err.name,
-      err.code,
-      err.status || 500,
-      err.message
-    );
-  }
-  if (this.stack) {
-    stackString = err.stack;
-  }
-  logger.error(`${responseString} --> ${errorString} ${stackString}`);
-  next();
 };
 
 module.exports = errorHandler;

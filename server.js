@@ -3,15 +3,78 @@ const http = require("http"),
   Router = require("router"),
   logger = console,
   router = new Router(),
-  { setRequestId, logRequest, logResponse } = require("./middleware/http");
+  qs = require("querystring");
+
+http.ServerResponse.prototype.status = function(code) {
+  this.statusCode = code;
+  return this;
+};
+
+http.ServerResponse.prototype.json = function(data) {
+  this.body = data;
+  this.end(JSON.stringify(this.body));
+  return this;
+};
 
 /**
  * SERVER CREATION
  */
 const server = http.createServer((req, res) => {
+  const id = Math.random()
+    .toString(36)
+    .substr(2);
+  req.id = id;
+  res.id = id;
+  req
+    .on("data", chunk => {
+      req.body = [];
+      req.body.push(chunk);
+    })
+    .on("end", () => {
+      req.body = JSON.parse(Buffer.concat(req.body).toString());
+      const now = new Date().toISOString();
+      if (["GET", "OPTIONS", "HEAD"].includes(req.method)) {
+        const { id, method, path, query } = req;
+        logger.info(
+          `${now}: Request ${id} ${method} ${path} --> query: ${JSON.stringify(
+            query
+          )}`
+        );
+      } else {
+        const { id, method, path, body } = req;
+        logger.info(
+          `${now}: Request ${id} ${method} ${path} --> body: ${JSON.stringify(
+            body
+          )}`
+        );
+      }
+    });
+  /* Querystring  */
   const [path, querystring] = req.url.split("?");
   req.path = path;
-  req.query = require("querystring").parse(querystring) || {};
+  req.query = qs.parse(querystring) || {};
+  /**
+   * Response events
+   */
+  res.on("close", () => {
+    logger.error("ERROR EVENT");
+  });
+  res.on("finish", () => {
+    const now = new Date().toISOString();
+    const { method, path } = req;
+    const { id, statusCode, statusMessage, body } = res;
+    const log = `${now}: Response ${id} ${method} ${path} ${statusCode} ${statusMessage} ---> body: ${JSON.stringify(
+      body
+    )}`;
+    if (statusCode >= 400) {
+      logger.error(log);
+    } else {
+      logger.info(log);
+    }
+  });
+  res.on("error", err => {
+    logger.error("ERROR EVENT --> err", err);
+  });
   router(req, res, finalhandler(req, res));
 });
 
@@ -36,23 +99,12 @@ server.on("listening", () => {
 router
   .use(require("helmet")())
   .use(require("cors")())
-  .use(require("compression")())
-  .use(require("body-parser").json())
-  .use(setRequestId)
-  .use(logRequest);
+  .use(require("compression")());
 
 /**
  * ROUTES
  */
 router.use("/", require("./routes"));
-
-/**
- * RESPONSE LOGGING
- *
- * Must be at the end so it has access to the response
- * body
- */
-router.use(logResponse);
 
 /**
  * Error Handler
