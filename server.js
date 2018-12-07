@@ -25,16 +25,25 @@ const server = http.createServer((req, res) => {
     .substr(2);
   req.id = id;
   res.id = id;
+  /* Querystring  */
+  const [path, querystring] = req.url.split("?");
+  req.path = path;
+  req.query = qs.parse(querystring) || {};
+  res.method = req.method;
+  res.path = req.path;
   req
     .on("data", chunk => {
       req.body = [];
       req.body.push(chunk);
     })
     .on("end", () => {
+      /** We parse our request body as a JSON object */
       req.body = JSON.parse(Buffer.concat(req.body).toString());
-      const now = new Date().toISOString();
+      /** We log our request */
+      const now = new Date().toISOString(),
+        { id, method, path, query } = req;
+
       if (["GET", "OPTIONS", "HEAD"].includes(req.method)) {
-        const { id, method, path, query } = req;
         logger.info(
           `${now}: Request ${id} ${method} ${path} --> query: ${JSON.stringify(
             query
@@ -48,11 +57,10 @@ const server = http.createServer((req, res) => {
           )}`
         );
       }
+      /* Now that our body was parsed, we start our middleware stack */
+      router(req, res, finalhandler(req, res));
     });
-  /* Querystring  */
-  const [path, querystring] = req.url.split("?");
-  req.path = path;
-  req.query = qs.parse(querystring) || {};
+
   /**
    * Response events
    */
@@ -61,8 +69,7 @@ const server = http.createServer((req, res) => {
   });
   res.on("finish", () => {
     const now = new Date().toISOString();
-    const { method, path } = req;
-    const { id, statusCode, statusMessage, body } = res;
+    const { id, statusCode, statusMessage, body, method, path } = res;
     const log = `${now}: Response ${id} ${method} ${path} ${statusCode} ${statusMessage} ---> body: ${JSON.stringify(
       body
     )}`;
@@ -73,9 +80,8 @@ const server = http.createServer((req, res) => {
     }
   });
   res.on("error", err => {
-    logger.error("ERROR EVENT --> err", err);
+    logger.error("Response ERROR EVENT --> err", err);
   });
-  router(req, res, finalhandler(req, res));
 });
 
 /**
